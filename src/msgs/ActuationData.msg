@@ -1,2 +1,0 @@
-float32 acceleration_threshold
-float32 steering
