@@ -9,30 +9,34 @@ from mur_common.msg import planner_msg as PlannerData
 from src.pid_pure_pursuit import PIDPurePursuit
 
 
-class PathFollowerNode:
+class PathFollower:
     left_cone_colour = "blue"
     right_cone_colour = "yellow"
 
     def __init__(self):
+        self.controller = PIDPurePursuit()
+        # From Odometry
         self.state = None
-        self.path_nodes = None
+        # From SLAM
         self.left_cones = None
         self.right_cones = None
-        self.controller = PIDPurePursuit()
-        self.odom_sub = rospy.Subscriber("~odom", Odometry, self.odom_callback)
-        self.cone_sub = rospy.Subscriber("mur_slam", ConeData, self.cone_callback)
-        self.planner_sub = rospy.Subscriber("mur_planner", PlannerData, self.planner_callback)
-        self.actuation_pub = rospy.Publisher("mur_actuation", ActuationData)
+        # From Path Planner
+        self.path_nodes = None
+        # For Actuation
+        self.actuation_pub = None
+
+    def set_actuation_pub(self, actuation_pub):
+        self.actuation_pub = actuation_pub
 
     def update(self):
         # Compute control action
         acc_threshold, steering = self.controller.control(self.state, self.path_nodes)
         # Construct message
-        msg = ActuationData()
-        msg.acceleration_threshold = acc_threshold
-        msg.steering = steering
+        message = ActuationData()
+        message.acceleration_threshold = acc_threshold
+        message.steering = steering
         # Publish actuation command
-        self.actuation_pub.publish(acc_threshold, steering)
+        self.actuation_pub.publish(message)
 
     def odom_callback(self, msg):
         x = msg.pose.pose.position.x
@@ -65,9 +69,29 @@ class PathFollowerNode:
         self.right_cones = np.array(right_cones)
 
     def planner_callback(self, msg):
-        self.path_nodes = msg.path_nodes
+        self.path_nodes = [(x, y, v) for (x, y, v) in zip(msg.x, msg.y, msg.v)]
 
 
 def run_node():
+    follower = PathFollower()
+
+    # Odometry subscriber
+    rospy.Subscriber("~odom", Odometry, follower.odom_callback)
+
+    # Cone data subscriber
+    rospy.Subscriber("mur_slam", ConeData, follower.cone_callback)
+
+    # Path Planner subscriber
+    rospy.Subscriber("mur_planner", PlannerData, follower.planner_callback)
+
+    # Actuation publisher
+    actuation_pub = rospy.Publisher("mur_actuation", ActuationData)
+    follower.set_actuation_pub(actuation_pub)
+
+    # Run the node
     rospy.init_node("mur_follower")
     rospy.spin()
+
+
+if __name__ == "__main__":
+    run_node()
