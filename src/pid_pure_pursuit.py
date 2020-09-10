@@ -1,5 +1,5 @@
 import math
-from src.sanitise_output import constrain_output, convert_acceleration_to_threshold
+from sanitise_output import constrain_output, convert_acceleration_to_threshold
 
 
 # Vehicle parameters

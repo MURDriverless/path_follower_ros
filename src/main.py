@@ -6,7 +6,7 @@ from nav_msgs.msg import Odometry
 from mur_common.msg import cone_msg as ConeData
 from mur_common.msg import actuation_msg as ActuationData
 from mur_common.msg import path_msg as PathData
-from src.pid_pure_pursuit import PIDPurePursuit
+from pid_pure_pursuit import PIDPurePursuit
 
 
 class PathFollower:
@@ -73,6 +73,9 @@ class PathFollower:
 
 
 def run_node():
+    # Initialise node
+    rospy.init_node("mur_follower")
+
     follower = PathFollower()
 
     # Odometry subscriber
@@ -85,11 +88,10 @@ def run_node():
     rospy.Subscriber("/mur/planner/path", PathData, follower.planner_callback)
 
     # Actuation publisher
-    actuation_pub = rospy.Publisher("mur_actuation", ActuationData)
+    actuation_pub = rospy.Publisher("mur_actuation", ActuationData, queue_size=10)
     follower.set_actuation_pub(actuation_pub)
 
-    # Run the node
-    rospy.init_node("mur_follower")
+    # Run the node forever
     rospy.spin()
 
 
