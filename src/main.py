@@ -5,7 +5,7 @@ import rospy
 from nav_msgs.msg import Odometry
 from mur_common.msg import cone_msg as ConeData
 from mur_common.msg import actuation_msg as ActuationData
-from mur_common.msg import planner_msg as PlannerData
+from mur_common.msg import path_msg as PathData
 from src.pid_pure_pursuit import PIDPurePursuit
 
 
@@ -82,7 +82,7 @@ def run_node():
     rospy.Subscriber("mur_slam", ConeData, follower.cone_callback)
 
     # Path Planner subscriber
-    rospy.Subscriber("mur_planner", PlannerData, follower.planner_callback)
+    rospy.Subscriber("/mur/planner/path", PathData, follower.planner_callback)
 
     # Actuation publisher
     actuation_pub = rospy.Publisher("mur_actuation", ActuationData)

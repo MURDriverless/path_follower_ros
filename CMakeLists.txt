@@ -11,8 +11,6 @@ find_package(catkin REQUIRED COMPONENTS
 )
 catkin_python_setup()
 
-add_executable(path_follower_ros src/main.py)
-
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
 ################################################
