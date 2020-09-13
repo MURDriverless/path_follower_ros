@@ -28,16 +28,6 @@ class PathFollower:
     def set_actuation_pub(self, actuation_pub):
         self.actuation_pub = actuation_pub
 
-    def update(self):
-        # Compute control action
-        acc_threshold, steering = self.controller.control(self.state, self.path_nodes)
-        # Construct message
-        message = ActuationData()
-        message.acceleration_threshold = acc_threshold
-        message.steering = steering
-        # Publish actuation command
-        self.actuation_pub.publish(message)
-
     def odom_callback(self, msg):
         x = msg.pose.pose.position.x
         y = msg.pose.pose.position.y
@@ -51,6 +41,16 @@ class PathFollower:
         yaw = 2 * np.arcsin(abs(z_measure)) * np.sign(z_measure) * np.sign(w_measure)
         # Update the current state measurements
         self.state = np.array([x, y, v, yaw])
+
+        # Compute control action
+        acc_threshold, steering = self.controller.control(self.state, self.path_nodes)
+        # Construct message
+        message = ActuationData()
+        message.acceleration_threshold = acc_threshold
+        message.steering = steering
+        # Publish actuation command
+        self.actuation_pub.publish(message)
+
 
     def cone_callback(self, msg):
         xs = msg.x
