@@ -38,19 +38,20 @@ class PathFollower:
         # line 85-87
         z_measure = msg.pose.pose.orientation.z
         w_measure = msg.pose.pose.orientation.w
-        yaw = 2 * np.arcsin(abs(z_measure)) * np.sign(z_measure) * np.sign(w_measure)
+        yaw = 2 * np.arcsin(abs(z_measure)) * \
+            np.sign(z_measure) * np.sign(w_measure)
         # Update the current state measurements
         self.state = np.array([x, y, v, yaw])
 
         # Compute control action
-        acc_threshold, steering = self.controller.control(self.state, self.path_nodes)
+        acc_threshold, steering = self.controller.control(
+            self.state, self.path_nodes)
         # Construct message
         message = ActuationData()
         message.acceleration_threshold = acc_threshold
         message.steering = steering
         # Publish actuation command
         self.actuation_pub.publish(message)
-
 
     def cone_callback(self, msg):
         xs = msg.x
@@ -79,16 +80,17 @@ def run_node():
     follower = PathFollower()
 
     # Odometry subscriber
-    rospy.Subscriber("~odom", Odometry, follower.odom_callback)
+    rospy.Subscriber("/mur/slam/Odom", Odometry, follower.odom_callback)
 
     # Cone data subscriber
-    rospy.Subscriber("mur_slam", ConeData, follower.cone_callback)
+    rospy.Subscriber("mur/slam/cones", ConeData, follower.cone_callback)
 
     # Path Planner subscriber
     rospy.Subscriber("/mur/planner/path", PathData, follower.planner_callback)
 
     # Actuation publisher
-    actuation_pub = rospy.Publisher("mur_actuation", ActuationData, queue_size=10)
+    actuation_pub = rospy.Publisher(
+        "mur/control/actuation", ActuationData, queue_size=10)
     follower.set_actuation_pub(actuation_pub)
 
     # Run the node forever
