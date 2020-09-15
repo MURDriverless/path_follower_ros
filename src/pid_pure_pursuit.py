@@ -75,10 +75,11 @@ class PIDPurePursuit:
 
         # Control law for forward acceleration. Target velocity is target_node[2],
         # where 2 describes the index of linear velocity in PathNode.msg
-        acceleration = acceleration_control(target_node[2], v)
+        acceleration = acceleration_control(0.5, v)
 
         # Control law for steering
-        steering = steering_control(x, y, yaw, target_node[0], target_node[1], Lf)
+        steering = steering_control(
+            x, y, yaw, target_node[0], target_node[1], Lf)
 
         acceleration, steering = constrain_output(acceleration, steering)
         acc_threshold = convert_acceleration_to_threshold(acceleration)
