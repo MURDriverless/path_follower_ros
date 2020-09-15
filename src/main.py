@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import numpy as np
+import math
 import rospy
 from nav_msgs.msg import Odometry
 from mur_common.msg import cone_msg as ConeData
@@ -10,8 +11,8 @@ from pid_pure_pursuit import PIDPurePursuit
 
 
 class PathFollower:
-    left_cone_colour = "blue"
-    right_cone_colour = "yellow"
+    left_cone_colour = "BLUE"
+    right_cone_colour = "YELLOW"
 
     def __init__(self):
         self.controller = PIDPurePursuit()
@@ -24,6 +25,9 @@ class PathFollower:
         self.path_nodes = None
         # For Actuation
         self.actuation_pub = None
+        self.state = np.array([0, 0, 0, 0])
+        self.left_cones = []
+        self.right_cones = []
 
     def set_actuation_pub(self, actuation_pub):
         self.actuation_pub = actuation_pub
@@ -33,7 +37,7 @@ class PathFollower:
         y = msg.pose.pose.position.y
         vx = msg.twist.twist.linear.x
         vy = msg.twist.twist.linear.y
-        v = np.hypot(vx, vy)
+        v = math.sqrt(vx**vx + vy**vy)
         # From https://github.com/tsrour/aionr6-mpc-ros/blob/master/ltvcmpc_controller/scripts/mpcc_control_node
         # line 85-87
         z_measure = msg.pose.pose.orientation.z
@@ -43,7 +47,10 @@ class PathFollower:
         # Update the current state measurements
         self.state = np.array([x, y, v, yaw])
 
+    def publishControl(self):
         # Compute control action
+        if (len(self.left_cones) == 0 or len(self.right_cones) == 0):
+            return
         acc_threshold, steering = self.controller.control(
             self.state, self.path_nodes)
         # Construct message
@@ -52,6 +59,7 @@ class PathFollower:
         message.steering = steering
         # Publish actuation command
         self.actuation_pub.publish(message)
+        return
 
     def cone_callback(self, msg):
         xs = msg.x
@@ -94,6 +102,10 @@ def run_node():
     follower.set_actuation_pub(actuation_pub)
 
     # Run the node forever
+    rate = rospy.Rate(20)
+    while(not rospy.is_shutdown()):
+        follower.publishControl()
+        rate.sleep()
     rospy.spin()
 
 
