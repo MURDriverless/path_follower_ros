@@ -93,7 +93,7 @@ class PathFollower:
         next_v = self.state[2] + acceleration * 0.05
         control_desired_msg.linear.x = next_v * math.cos(self.state[3])
         control_desired_msg.linear.y = next_v * math.sin(self.state[3])
-        control_desired_msg.angular.z = next_v * math.tan(steering) / 2.951
+        control_desired_msg.angular.z = self.state[3] + steering * 0.05
 
         # acc_threshold = convert_acceleration_to_threshold(acceleration)
 

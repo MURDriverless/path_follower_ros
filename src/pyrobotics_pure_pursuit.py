@@ -18,7 +18,7 @@ dt = 0.05  # [s] time tick
 WB = 2.951  # [m] wheel base of vehicle
 
 Kp = 1
-Ki = 0.05
+Ki = 0.01
 Kd = 0.5
 PID = pid(Kp, Ki, Kd, 0.05, 5)
 
