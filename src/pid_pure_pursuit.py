@@ -4,7 +4,7 @@ import rospy
 from rospy import Publisher
 from geometry_msgs.msg import PoseStamped
 # from visualization_msgs.msg import MarkerArray, Marker
-import pid
+from pid import pid
 
 
 # Vehicle parameters
@@ -54,15 +54,25 @@ def calculate_rear_to_target(x, y, yaw, target_x, target_y):
 
 
 def search_target_index(x, y, v, yaw, nodes, previous_index):
-    nodes = nodes[previous_index:]
+    # nodes = nodes[previous_index:]
     # Get look-ahead distance
     Lf = Lfv * v + Lfc
     # Calculate the distance from current car position to the first node
     index = 0
+    # print(nodes)
     point_x, point_y = nodes[index][0], nodes[index][1]
-    index_distance = calculate_rear_to_target(x, y, yaw, point_x, point_y)
     # Iterate through each point in the planned path until we get the furthest point
     # according to Lf, or if we are at the end-point.
+    index_distance = calculate_rear_to_target(x, y, yaw, point_x, point_y)
+    while (True):
+        point_x, point_y = nodes[index+1][0], nodes[index+1][1]
+        index_distance_next = calculate_rear_to_target(
+            x, y, yaw, point_x, point_y)
+        if (index_distance < index_distance_next):
+            break
+        index = index + 1 if (index+1) < len(nodes) else index
+        index_distance = index_distance_next
+
     while index_distance < Lf:
         if (index + 1) >= len(nodes):
             break
@@ -77,7 +87,8 @@ def search_target_index(x, y, v, yaw, nodes, previous_index):
 
 class PIDPurePursuit:
     def __init__(self):
-        self.target_node_pub = Publisher("TargetNode", PoseStamped, queue_size=10)
+        self.target_node_pub = Publisher(
+            "TargetNode", PoseStamped, queue_size=10)
         self.previous_index = 0
 
     def control(self, state, nodes):
@@ -89,10 +100,12 @@ class PIDPurePursuit:
         dy = [y - node[1] for node in nodes]
         squared_distances = [idx ** 2 + idy ** 2 for (idx, idy) in zip(dx, dy)]
         min_squared_dist = min(squared_distances)
-        self.previous_index = squared_distances.index(min_squared_dist) + self.previous_index
+        self.previous_index = squared_distances.index(
+            min_squared_dist)
 
         # Search for the node that is the furthest given our look ahead distance
-        target_index, Lf = search_target_index(x, y, v, yaw, nodes, self.previous_index)
+        target_index, Lf = search_target_index(
+            x, y, v, yaw, nodes, self.previous_index)
         target_node = nodes[target_index]
 
         ps = PoseStamped()
