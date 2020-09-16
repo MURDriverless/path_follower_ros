@@ -4,7 +4,7 @@ import rospy
 from rospy import Publisher
 from geometry_msgs.msg import PoseStamped
 # from visualization_msgs.msg import MarkerArray, Marker
-import pid
+from pid import pid
 
 
 # Vehicle parameters
