@@ -77,6 +77,7 @@ class PathFollower:
         v = np.hypot(vx, vy)
         # Update the current state measurements
         self.state = np.array([x, y, v, yaw])
+        self.publishControl()
 
     def publishControl(self):
         # Compute control action
@@ -242,10 +243,10 @@ def run_node():
 
     # Run the node forever
     rate = rospy.Rate(20)
-    while(not rospy.is_shutdown()):
-        # follower.plan_path()
-        follower.publishControl()
-        rate.sleep()
+    # while(not rospy.is_shutdown()):
+    #     # follower.plan_path()
+    #     follower.publishControl()
+    #     rate.sleep()
     rospy.spin()
 
 
