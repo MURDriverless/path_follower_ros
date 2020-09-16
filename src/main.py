@@ -11,8 +11,8 @@ from pid_pure_pursuit import PIDPurePursuit
 from pyrobotics_pure_pursuit import PyRoboticsPurePursuit
 from nav_msgs.msg import Path
 from cubic_spline import Spline2D
-
-from geometry_msgs.msg import PoseStamped, Pose
+from sanitise_output import convert_acceleration_to_threshold, constrain_output
+from geometry_msgs.msg import PoseStamped, Pose, Twist
 
 
 class PathFollower:
@@ -31,11 +31,15 @@ class PathFollower:
         self.path_nodes = []
         # For Actuation
         self.actuation_pub = None
+        self.control_desired_pub = None
         self.state = np.array([0, 0, 0, 0])
         self.pathPub = rospy.Publisher("Path", Path, queue_size=10)
 
     def set_actuation_pub(self, actuation_pub):
         self.actuation_pub = actuation_pub
+
+    def set_control_desired_pub(self, control_desired_pub):
+        self.control_desired_pub = control_desired_pub
 
     def publishPath(self):
         msg = Path()
@@ -80,11 +84,20 @@ class PathFollower:
             return
         if (len(self.path_nodes) == 0):
             return
-        acc_threshold, steering = self.controller.control(
+        acceleration, steering = self.controller.control(
             self.state, self.path_nodes)
+        acc_threshold, steering = constrain_output(acceleration, steering)
 
-        if acc_threshold > 0 and acc_threshold > 0.3:
-            acc_threshold = 0.3
+        control_desired_msg = Twist()
+        next_v = self.state[2] + acceleration * 0.05
+        control_desired_msg.linear.x = next_v * math.cos(self.state[3])
+        control_desired_msg.linear.y = next_v * math.sin(self.state[3])
+        control_desired_msg.angular.z = next_v * math.tan(steering) / 2.951
+
+        # acc_threshold = convert_acceleration_to_threshold(acceleration)
+
+        # if acc_threshold > 0 and acc_threshold > 0.1:
+        #     acc_threshold = 0.1
 
         # Construct message
         print("Steering message")
@@ -92,8 +105,10 @@ class PathFollower:
         message = ActuationData()
         message.acceleration_threshold = acc_threshold
         message.steering = steering
+
         # Publish actuation command
         self.actuation_pub.publish(message)
+        self.control_desired_pub.publish(control_desired_msg)
         return
 
     def cone_callback(self, msg):
@@ -118,6 +133,10 @@ class PathFollower:
         step_size = 0.1
         interval = np.arange(0, max_distance, step_size)
         positions = [spline.interpolate(t) for t in interval]
+        velocities = [spline.interpolate_first_derivative(t) for t in interval]
+        vx = [v[0] for v in velocities]
+        vy = [v[1] for v in velocities]
+        speeds = np.hypot(vx, vy)
         self.path_nodes = [(positions[i][0], positions[i][1], 0.5) for i in range(len(interval))]
         # self.path_nodes = [(x, y, v) for (x, y, v) in zip(msg.x, msg.y, msg.v)]
         # self.plan_path()
@@ -212,8 +231,14 @@ def run_node():
 
     # Actuation publisher
     actuation_pub = rospy.Publisher(
-        "mur/control/actuation", ActuationData, queue_size=10)
+        "/mur/control/actuation", ActuationData, queue_size=10)
+
+    control_desired = rospy.Publisher(
+        "/mur/control_desired", Twist, queue_size=10
+    )
+
     follower.set_actuation_pub(actuation_pub)
+    follower.set_control_desired_pub(control_desired)
 
     # Run the node forever
     rate = rospy.Rate(20)

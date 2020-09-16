@@ -13,15 +13,15 @@ WB = 2.951  # Length from front wheel to back
 
 
 # PID parameters
-Kp = 15
+Kp = 10
 Ki = 1.5
 Kd = 3
-PID = pid(Kp, Ki, Kd, 0.05, 5)
+PID = pid(Kp, Ki, Kd, 0.05)
 
 
 # Pure Pursuit
 Lfv = 0.1
-Lfc = 3.5
+Lfc = 4
 
 
 def acceleration_control(target_speed, current_speed):

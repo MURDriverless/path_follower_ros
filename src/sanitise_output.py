@@ -1,8 +1,12 @@
+import numpy as np
+
 # Vehicle constraints
 
 g = 9.81
 max_acceleration = 1.2 * g
 max_deceleration = -1.8 * g
+
+max_steering = 0.8
 
 
 def constrain_output(acceleration, steering):
@@ -10,6 +14,8 @@ def constrain_output(acceleration, steering):
         acceleration = max_acceleration
     elif acceleration <= max_deceleration:
         acceleration = max_deceleration
+    if np.abs(steering) >= max_steering:
+        steering = max_steering - 0.001
 
     return acceleration, steering
 

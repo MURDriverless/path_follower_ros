@@ -7,6 +7,8 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 from pid import pid
+from rospy import Publisher, Time
+from geometry_msgs.msg import PoseStamped
 
 # Parameters
 k = 0.1  # look forward gain
@@ -15,9 +17,9 @@ Lfc = 3.5  # [m] look-ahead distance
 dt = 0.05  # [s] time tick
 WB = 2.951  # [m] wheel base of vehicle
 
-Kp = 15
-Ki = 1.5
-Kd = 3
+Kp = 1
+Ki = 0.05
+Kd = 0.5
 PID = pid(Kp, Ki, Kd, 0.05, 5)
 
 show_animation = True
@@ -103,7 +105,7 @@ class TargetCourse:
             while True:
                 distance_next_index = state_obj.calc_distance(self.cx[ind + 1],
                                                               self.cy[ind + 1])
-                if distance_this_index < distance_next_index:
+                if distance_this_index < distance_next_index or (ind+1) > len(self.cx):
                     break
                 ind = ind + 1 if (ind + 1) < len(self.cx) else ind
                 distance_this_index = distance_next_index
@@ -157,6 +159,8 @@ def plot_arrow(x, y, yaw, length=1.0, width=0.5, fc="r", ec="k"):
 
 class PyRoboticsPurePursuit:
     def __init__(self, state):
+        self.target_node_pub = Publisher(
+            "TargetNode", PoseStamped, queue_size=10)
         self.state_obj = State(state[0], state[1], state[3], state[2])
 
     def control(self, state, nodes):
@@ -165,6 +169,14 @@ class PyRoboticsPurePursuit:
         cy = [node[1] for node in nodes]
         target_course = TargetCourse(cx, cy)
         target_ind, _ = target_course.search_target_index(self.state_obj)
+
+        ps = PoseStamped()
+        ps.pose.position.x = target_course.cx[target_ind]
+        ps.pose.position.y = target_course.cy[target_ind]
+        ps.header.frame_id = "map"
+        ps.header.seq = 1
+        ps.header.stamp = Time.now()
+        self.target_node_pub.publish(ps)
 
         ai = proportional_control(nodes[target_ind][2], self.state_obj.v)
         di, target_ind = pure_pursuit_steer_control(self.state_obj, target_course, target_ind)
