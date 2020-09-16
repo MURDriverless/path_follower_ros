@@ -1,4 +1,5 @@
 import math
+import numpy as np
 from sanitise_output import constrain_output, convert_acceleration_to_threshold
 import rospy
 from rospy import Publisher
@@ -12,15 +13,15 @@ WB = 2.951  # Length from front wheel to back
 
 
 # PID parameters
-Kp = 2
-Ki = 0.1
-Kd = 0.7
-PID = pid(Kp, Ki, Kd, 1/20)
+Kp = 15
+Ki = 1.5
+Kd = 3
+PID = pid(Kp, Ki, Kd, 0.05, 5)
 
 
 # Pure Pursuit
 Lfv = 0.1
-Lfc = 5
+Lfc = 3.5
 
 
 def acceleration_control(target_speed, current_speed):
@@ -53,7 +54,20 @@ def calculate_rear_to_target(x, y, yaw, target_x, target_y):
     return math.hypot(dx, dy)
 
 
-def search_target_index(x, y, v, yaw, nodes, previous_index):
+def search_starting_index(x, y, yaw, Lf, nodes, path_index):
+    d = np.inf
+    for i in range(path_index, len(nodes)):
+        xr, yr = calculate_rear_position(x, y, yaw)
+        dist = np.hypot(xr - nodes[i][0], yr - nodes[i][1])
+        if dist > Lf:
+            break
+        if dist < d:
+            d = dist
+            path_index = i
+    return path_index
+
+
+def search_target_index(x, y, v, yaw, nodes, path_index):
     # nodes = nodes[previous_index:]
     # Get look-ahead distance
     Lf = Lfv * v + Lfc
@@ -64,25 +78,38 @@ def search_target_index(x, y, v, yaw, nodes, previous_index):
     # Iterate through each point in the planned path until we get the furthest point
     # according to Lf, or if we are at the end-point.
     index_distance = calculate_rear_to_target(x, y, yaw, point_x, point_y)
-    while (True):
-        point_x, point_y = nodes[index+1][0], nodes[index+1][1]
-        index_distance_next = calculate_rear_to_target(
-            x, y, yaw, point_x, point_y)
-        if (index_distance < index_distance_next):
+    # while (True):
+    #     point_x, point_y = nodes[index+1][0], nodes[index+1][1]
+    #     index_distance_next = calculate_rear_to_target(
+    #         x, y, yaw, point_x, point_y)
+    #     if index_distance < index_distance_next or (index + 1) >= len(nodes):
+    #         break
+    #     index = index + 1 if (index+1) < len(nodes) else index
+    #     index_distance = index_distance_next
+    d = np.inf
+    for i in range(path_index, len(nodes)):
+        xr, yr = calculate_rear_position(x, y, yaw)
+        dist = np.hypot(xr - nodes[i][0], yr - nodes[i][1])
+        if dist > Lf:
             break
-        index = index + 1 if (index+1) < len(nodes) else index
-        index_distance = index_distance_next
+        if dist < d:
+            d = dist
+            path_index = i
 
-    while index_distance < Lf:
-        if (index + 1) >= len(nodes):
-            break
-        # Since we are still in iteration, increment the index
-        index += 1
-        # Recalculate the distance to check if we have reached the furthest point
-        point_x, point_y = nodes[index][0], nodes[index][1]
-        index_distance = calculate_rear_to_target(x, y, yaw, point_x, point_y)
+    return path_index, Lf
 
-    return index, Lf
+
+
+    # while index_distance < Lf:
+    #     if (index + 1) >= len(nodes):
+    #         break
+    #     # Since we are still in iteration, increment the index
+    #     index += 1
+    #     # Recalculate the distance to check if we have reached the furthest point
+    #     point_x, point_y = nodes[index][0], nodes[index][1]
+    #     index_distance = calculate_rear_to_target(x, y, yaw, point_x, point_y)
+    #
+    # return index, Lf
 
 
 class PIDPurePursuit:
@@ -96,16 +123,17 @@ class PIDPurePursuit:
         x, y, v, yaw = state[0], state[1], state[2], state[3]
 
         # Calculates previous index
-        dx = [x - node[0] for node in nodes]
-        dy = [y - node[1] for node in nodes]
-        squared_distances = [idx ** 2 + idy ** 2 for (idx, idy) in zip(dx, dy)]
-        min_squared_dist = min(squared_distances)
-        self.previous_index = squared_distances.index(
-            min_squared_dist)
+        # dx = [x - node[0] for node in nodes]
+        # dy = [y - node[1] for node in nodes]
+        # squared_distances = [idx ** 2 + idy ** 2 for (idx, idy) in zip(dx, dy)]
+        # min_squared_dist = min(squared_distances)
+        # self.previous_index = squared_distances.index(
+        #     min_squared_dist)
 
         # Search for the node that is the furthest given our look ahead distance
         target_index, Lf = search_target_index(
             x, y, v, yaw, nodes, self.previous_index)
+        self.target
         target_node = nodes[target_index]
 
         ps = PoseStamped()

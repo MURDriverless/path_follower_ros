@@ -8,6 +8,7 @@ from mur_common.msg import cone_msg as ConeData
 from mur_common.msg import actuation_msg as ActuationData
 from mur_common.msg import path_msg as PathData
 from pid_pure_pursuit import PIDPurePursuit
+from pyrobotics_pure_pursuit import PyRoboticsPurePursuit
 from nav_msgs.msg import Path
 from cubic_spline import Spline2D
 
@@ -19,7 +20,8 @@ class PathFollower:
     right_cone_colour = "YELLOW"
 
     def __init__(self):
-        self.controller = PIDPurePursuit()
+        # self.controller = PIDPurePursuit()
+        self.controller = PyRoboticsPurePursuit([0.0, 0.0, 0.0, 0.0])
         # From Odometry
         self.state = None
         # From SLAM
@@ -80,6 +82,10 @@ class PathFollower:
             return
         acc_threshold, steering = self.controller.control(
             self.state, self.path_nodes)
+
+        if acc_threshold > 0 and acc_threshold > 0.3:
+            acc_threshold = 0.3
+
         # Construct message
         print("Steering message")
         print(acc_threshold, steering)
