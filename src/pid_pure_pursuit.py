@@ -4,6 +4,7 @@ import rospy
 from rospy import Publisher
 from geometry_msgs.msg import PoseStamped
 # from visualization_msgs.msg import MarkerArray, Marker
+import pid
 
 
 # Vehicle parameters
@@ -11,17 +12,21 @@ WB = 2.951  # Length from front wheel to back
 
 
 # PID parameters
-Kp = 1
+Kp = 2
+Ki = 0.1
+Kd = 0.7
+PID = pid(Kp, Ki, Kd, 1/20)
 
 
 # Pure Pursuit
-Lfv = 1
-Lfc = 4
+Lfv = 0.1
+Lfc = 5
 
 
 def acceleration_control(target_speed, current_speed):
-    # Simple P controller for now
-    return Kp * (target_speed - current_speed)
+    # # Simple P controller for now
+    # return Kp * (target_speed - current_speed)
+    return PID.control(target_speed - current_speed)
 
 
 def steering_control(x, y, yaw, target_x, target_y, Lf):
@@ -48,7 +53,8 @@ def calculate_rear_to_target(x, y, yaw, target_x, target_y):
     return math.hypot(dx, dy)
 
 
-def search_target_index(x, y, v, yaw, nodes):
+def search_target_index(x, y, v, yaw, nodes, previous_index):
+    nodes = nodes[previous_index:]
     # Get look-ahead distance
     Lf = Lfv * v + Lfc
     # Calculate the distance from current car position to the first node
@@ -72,13 +78,21 @@ def search_target_index(x, y, v, yaw, nodes):
 class PIDPurePursuit:
     def __init__(self):
         self.target_node_pub = Publisher("TargetNode", PoseStamped, queue_size=10)
+        self.previous_index = 0
 
     def control(self, state, nodes):
         # Expected state to have the format: [x, y, v, yaw, ...]
         x, y, v, yaw = state[0], state[1], state[2], state[3]
 
+        # Calculates previous index
+        dx = [x - node[0] for node in nodes]
+        dy = [y - node[1] for node in nodes]
+        squared_distances = [idx ** 2 + idy ** 2 for (idx, idy) in zip(dx, dy)]
+        min_squared_dist = min(squared_distances)
+        self.previous_index = squared_distances.index(min_squared_dist) + self.previous_index
+
         # Search for the node that is the furthest given our look ahead distance
-        target_index, Lf = search_target_index(x, y, v, yaw, nodes)
+        target_index, Lf = search_target_index(x, y, v, yaw, nodes, self.previous_index)
         target_node = nodes[target_index]
 
         ps = PoseStamped()

@@ -61,7 +61,6 @@ class PathFollower:
         y = msg.pose.pose.position.y
         vx = msg.twist.twist.linear.x
         vy = msg.twist.twist.linear.y
-        v = math.sqrt(vx**vx + vy**vy)
         # From https://github.com/tsrour/aionr6-mpc-ros/blob/master/ltvcmpc_controller/scripts/mpcc_control_node
         # line 85-87
         z_measure = msg.pose.pose.orientation.z
