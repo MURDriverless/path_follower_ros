@@ -1,9 +1,13 @@
 import math
 from sanitise_output import constrain_output, convert_acceleration_to_threshold
+import rospy
+from rospy import Publisher
+from geometry_msgs.msg import PoseStamped
+# from visualization_msgs.msg import MarkerArray, Marker
 
 
 # Vehicle parameters
-WB = 2.95  # Length from front wheel to back
+WB = 2.951  # Length from front wheel to back
 
 
 # PID parameters
@@ -11,8 +15,8 @@ Kp = 1
 
 
 # Pure Pursuit
-Lfv = 0.1
-Lfc = 2
+Lfv = 1
+Lfc = 4
 
 
 def acceleration_control(target_speed, current_speed):
@@ -23,7 +27,9 @@ def acceleration_control(target_speed, current_speed):
 def steering_control(x, y, yaw, target_x, target_y, Lf):
     rear_x, rear_y = calculate_rear_position(x, y, yaw)
     alpha = math.atan2(target_y - rear_y, target_x - rear_x) - yaw
-    return math.atan2(2.0 * WB * math.sin(alpha) / Lf, 1.0)
+    steering = math.atan2(2.0 * WB * math.sin(alpha) / Lf, 1.0)
+    # return steering if alpha > 0 else -steering
+    return steering
 
 
 def calculate_rear_position(x, y, yaw):
@@ -64,14 +70,24 @@ def search_target_index(x, y, v, yaw, nodes):
 
 
 class PIDPurePursuit:
-    @staticmethod
-    def control(state, nodes):
+    def __init__(self):
+        self.target_node_pub = Publisher("TargetNode", PoseStamped, queue_size=10)
+
+    def control(self, state, nodes):
         # Expected state to have the format: [x, y, v, yaw, ...]
         x, y, v, yaw = state[0], state[1], state[2], state[3]
 
         # Search for the node that is the furthest given our look ahead distance
         target_index, Lf = search_target_index(x, y, v, yaw, nodes)
         target_node = nodes[target_index]
+
+        ps = PoseStamped()
+        ps.pose.position.x = target_node[0]
+        ps.pose.position.y = target_node[1]
+        ps.header.frame_id = "map"
+        ps.header.seq = 1
+        ps.header.stamp = rospy.Time.now()
+        self.target_node_pub.publish(ps)
 
         # Control law for forward acceleration. Target velocity is target_node[2],
         # where 2 describes the index of linear velocity in PathNode.msg

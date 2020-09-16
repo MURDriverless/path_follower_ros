@@ -9,6 +9,7 @@ from mur_common.msg import actuation_msg as ActuationData
 from mur_common.msg import path_msg as PathData
 from pid_pure_pursuit import PIDPurePursuit
 from nav_msgs.msg import Path
+from cubic_spline import Spline2D
 
 from geometry_msgs.msg import PoseStamped, Pose
 
@@ -22,15 +23,13 @@ class PathFollower:
         # From Odometry
         self.state = None
         # From SLAM
-        self.left_cones = None
-        self.right_cones = None
+        self.left_cones = []
+        self.right_cones = []
         # From Path Planner
-        self.path_nodes = None
+        self.path_nodes = []
         # For Actuation
         self.actuation_pub = None
         self.state = np.array([0, 0, 0, 0])
-        self.left_cones = []
-        self.right_cones = []
         self.pathPub = rospy.Publisher("Path", Path, queue_size=10)
 
     def set_actuation_pub(self, actuation_pub):
@@ -69,7 +68,8 @@ class PathFollower:
         w_measure = msg.pose.pose.orientation.w
         yaw = 2 * np.arcsin(abs(z_measure)) * \
             np.sign(z_measure) * np.sign(w_measure)
-        v = vx * math.cos(yaw) + vy * math.sin(yaw)
+        # v = vx * math.cos(yaw) + vy * math.sin(yaw)
+        v = np.hypot(vx, vy)
         # Update the current state measurements
         self.state = np.array([x, y, v, yaw])
 
@@ -108,10 +108,16 @@ class PathFollower:
         self.right_cones = np.array(right_cones)
 
     def planner_callback(self, msg):
+        spline = Spline2D(msg.x, msg.y)
+        max_distance = spline.t[-1]
+        step_size = 0.1
+        interval = np.arange(0, max_distance, step_size)
+        positions = [spline.interpolate(t) for t in interval]
+        self.path_nodes = [(positions[i][0], positions[i][1], 0.5) for i in range(len(interval))]
         # self.path_nodes = [(x, y, v) for (x, y, v) in zip(msg.x, msg.y, msg.v)]
         # self.plan_path()
         # print(self.path_nodes)
-        pass
+        # pass
 
     def plan_path(self):
         associates = []
@@ -134,13 +140,22 @@ class PathFollower:
         midpoints = list(midpoints)
         midpoints.sort(key=lambda pt: abs(
             self.state[1]-pt[1]) + abs(self.state[0]-pt[0]), reverse=False)
+        # nodes = []
         self.path_nodes = []
         for point in midpoints:
             if self.infront(point):
                 continue
-            self.path_nodes.append(
-                (point[0], point[1], 0.5))
-        print(self.path_nodes)
+            # nodes.append((point[0], point[1], 4.0))
+            self.path_nodes.append((point[0], point[1], 0.5))
+
+        # nodes_x = [node[0] for node in nodes]
+        # nodes_y = [node[1] for node in nodes]
+        # path_spline = Spline2D(nodes_x, nodes_y)
+        # max_distance = 3
+        # step_size = 0.2
+        # interval = np.arange(0, max_distance, step_size)
+        # points = [path_spline.interpolate(i) for i in interval]
+        # self.path_nodes = [(point[0], point[1], 4.0) for point in points]
         self.publishPath()
 
     def getNearestFriendo(self, rcone):
@@ -198,7 +213,7 @@ def run_node():
     # Run the node forever
     rate = rospy.Rate(20)
     while(not rospy.is_shutdown()):
-        follower.plan_path()
+        # follower.plan_path()
         follower.publishControl()
         rate.sleep()
     rospy.spin()
