@@ -1,5 +1,7 @@
 # IDE files
 .idea/
+src/cpp/
+cmake-build-debug/
 
 # Python binaries
 *.pyc

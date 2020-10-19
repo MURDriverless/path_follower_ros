@@ -12,7 +12,7 @@ from pyrobotics_pure_pursuit import PyRoboticsPurePursuit
 from nav_msgs.msg import Path
 from cubic_spline import Spline2D
 from sanitise_output import convert_acceleration_to_threshold, constrain_output
-from geometry_msgs.msg import PoseStamped, Pose, Twist
+from geometry_msgs.msg import PoseStamped, Pose, Twist, Accel
 
 
 class PathFollower:
@@ -32,6 +32,7 @@ class PathFollower:
         # For Actuation
         self.actuation_pub = None
         self.control_desired_pub = None
+        self.accel_desired_pub = None
         self.state = np.array([0, 0, 0, 0])
         self.pathPub = rospy.Publisher("Path", Path, queue_size=10)
 
@@ -40,6 +41,9 @@ class PathFollower:
 
     def set_control_desired_pub(self, control_desired_pub):
         self.control_desired_pub = control_desired_pub
+
+    def set_accel_desired_pub(self, accel_desired_pub):
+        self.accel_desired_pub = accel_desired_pub
 
     def publishPath(self):
         msg = Path()
@@ -87,7 +91,8 @@ class PathFollower:
             return
         acceleration, steering = self.controller.control(
             self.state, self.path_nodes)
-        acc_threshold, steering = constrain_output(acceleration, steering)
+        acceleration, steering = constrain_output(acceleration, steering)
+        acc_threshold = acceleration
 
         control_desired_msg = Twist()
         next_v = self.state[2] + acceleration * 0.05
@@ -95,6 +100,10 @@ class PathFollower:
         control_desired_msg.linear.y = next_v * math.sin(self.state[3])
         control_desired_msg.angular.z = steering
         # acc_threshold = convert_acceleration_to_threshold(acceleration)
+
+        accel_desired_msg = Accel()
+        accel_desired_msg.linear.x = acceleration * math.cos(self.state[3])
+        accel_desired_msg.linear.y = acceleration * math.sin(self.state[3])
 
         # if acc_threshold > 0 and acc_threshold > 0.1:
         #     acc_threshold = 0.1
@@ -109,6 +118,7 @@ class PathFollower:
         # Publish actuation command
         self.actuation_pub.publish(message)
         self.control_desired_pub.publish(control_desired_msg)
+        self.accel_desired_pub.publish(accel_desired_msg)
         return
 
     def cone_callback(self, msg):
@@ -237,8 +247,13 @@ def run_node():
         "/mur/control_desired", Twist, queue_size=10
     )
 
+    accel_desired = rospy.Publisher(
+        "/mur/accel_desired", Accel, queue_size=10
+    )
+
     follower.set_actuation_pub(actuation_pub)
     follower.set_control_desired_pub(control_desired)
+    follower.set_accel_desired_pub(accel_desired)
 
     # Run the node forever
     rate = rospy.Rate(20)
