@@ -9,6 +9,7 @@ from mur_common.msg import actuation_msg as ActuationData
 from mur_common.msg import path_msg as PathData
 from pid_pure_pursuit import PIDPurePursuit
 from pyrobotics_pure_pursuit import PyRoboticsPurePursuit
+from pyrobotics_stanley import PyRoboticsStanley
 from nav_msgs.msg import Path
 from cubic_spline import Spline2D
 from sanitise_output import convert_acceleration_to_threshold, constrain_output
@@ -70,7 +71,7 @@ class PathFollower:
         x = msg.pose.pose.position.x
         y = msg.pose.pose.position.y
         vx = msg.twist.twist.linear.x
-        vy = msg.twist.twist.linear.y
+        # vy = msg.twist.twist.linear.y
         # From https://github.com/tsrour/aionr6-mpc-ros/blob/master/ltvcmpc_controller/scripts/mpcc_control_node
         # line 85-87
         z_measure = msg.pose.pose.orientation.z
@@ -78,9 +79,9 @@ class PathFollower:
         yaw = 2 * np.arcsin(abs(z_measure)) * \
             np.sign(z_measure) * np.sign(w_measure)
         # v = vx * math.cos(yaw) + vy * math.sin(yaw)
-        v = np.hypot(vx, vy)
+        # v = np.hypot(vx, vy)
         # Update the current state measurements
-        self.state = np.array([x, y, v, yaw])
+        self.state = np.array([x, y, vx, yaw])
         self.publishControl()
 
     def publishControl(self):
@@ -138,16 +139,18 @@ class PathFollower:
         self.right_cones = np.array(right_cones)
 
     def planner_callback(self, msg):
-        spline = Spline2D(msg.x, msg.y)
-        max_distance = spline.t[-1]
-        step_size = 0.1
-        interval = np.arange(0, max_distance, step_size)
-        positions = [spline.interpolate(t) for t in interval]
-        velocities = [spline.interpolate_first_derivative(t) for t in interval]
-        vx = [v[0] for v in velocities]
-        vy = [v[1] for v in velocities]
-        speeds = np.hypot(vx, vy)
-        self.path_nodes = [(positions[i][0], positions[i][1], 0.5) for i in range(len(interval))]
+        # spline = Spline2D(msg.x, msg.y)
+        # max_distance = spline.t[-1]
+        # step_size = 0.1
+        # interval = np.arange(0, max_distance, step_size)
+        # positions = [spline.interpolate(t) for t in interval]
+        # velocities = [spline.interpolate_first_derivative(t) for t in interval]
+        # vx = [v[0] for v in velocities]
+        # vy = [v[1] for v in velocities]
+        # self.path_nodes = [(positions[i][0], positions[i][1], v) for i in range(len(interval))]
+        path_x = msg.x
+        path_y = msg.y
+        self.path_nodes = [(x, y, 1.0) for x, y in zip(path_x, path_y)]
         # self.path_nodes = [(x, y, v) for (x, y, v) in zip(msg.x, msg.y, msg.v)]
         # self.plan_path()
         # print(self.path_nodes)
