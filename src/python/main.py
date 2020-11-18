@@ -139,18 +139,18 @@ class PathFollower:
         self.right_cones = np.array(right_cones)
 
     def planner_callback(self, msg):
-        # spline = Spline2D(msg.x, msg.y)
-        # max_distance = spline.t[-1]
-        # step_size = 0.1
-        # interval = np.arange(0, max_distance, step_size)
-        # positions = [spline.interpolate(t) for t in interval]
+        spline = Spline2D(msg.x, msg.y)
+        max_distance = spline.s[-1]
+        step_size = 0.2
+        interval = np.arange(0, max_distance, step_size)
+        positions = [spline.calc_position(t) for t in interval]
         # velocities = [spline.interpolate_first_derivative(t) for t in interval]
         # vx = [v[0] for v in velocities]
         # vy = [v[1] for v in velocities]
-        # self.path_nodes = [(positions[i][0], positions[i][1], v) for i in range(len(interval))]
-        path_x = msg.x
-        path_y = msg.y
-        self.path_nodes = [(x, y, 1.0) for x, y in zip(path_x, path_y)]
+        self.path_nodes = [(positions[i][0], positions[i][1], 1.0) for i in range(len(interval))]
+        # path_x = msg.x
+        # path_y = msg.y
+        # self.path_nodes = [(x, y, 1.0) for x, y in zip(path_x, path_y)]
         # self.path_nodes = [(x, y, v) for (x, y, v) in zip(msg.x, msg.y, msg.v)]
         # self.plan_path()
         # print(self.path_nodes)
