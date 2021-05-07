@@ -7,6 +7,7 @@ from nav_msgs.msg import Odometry
 from mur_common.msg import cone_msg as ConeData
 from mur_common.msg import actuation_msg as ActuationData
 from mur_common.msg import path_msg as PathData
+from mur_common.msg import transition_msg as TransitionData
 from pid_pure_pursuit import PIDPurePursuit
 from pyrobotics_pure_pursuit import PyRoboticsPurePursuit
 from pyrobotics_stanley import PyRoboticsStanley
@@ -36,6 +37,8 @@ class PathFollower:
         self.accel_desired_pub = None
         self.state = np.array([0, 0, 0, 0])
         self.pathPub = rospy.Publisher("Path", Path, queue_size=10)
+        # To end slow lap
+        self.fastLapReady = False
 
     def set_actuation_pub(self, actuation_pub):
         self.actuation_pub = actuation_pub
@@ -116,11 +119,18 @@ class PathFollower:
         message.acceleration_threshold = acc_threshold
         message.steering = steering
 
-        # Publish actuation command
-        self.actuation_pub.publish(message)
-        self.control_desired_pub.publish(control_desired_msg)
-        self.accel_desired_pub.publish(accel_desired_msg)
+        # Publish actuation command if not yet transition
+        if (self.fastLapReady == False): 
+            self.actuation_pub.publish(message)
+            self.control_desired_pub.publish(control_desired_msg)
+            self.accel_desired_pub.publish(accel_desired_msg)
+        else:
+            rospy.loginfo("Stopped Slow Lap Controller")
+        
         return
+
+    def transitionCallback(self, msg):
+        self.fastLapReady = msg.fastlapready;
 
     def cone_callback(self, msg):
         xs = msg.x
@@ -241,6 +251,9 @@ def run_node():
 
     # Path Planner subscriber
     rospy.Subscriber("/mur/planner/path", PathData, follower.planner_callback)
+
+    # Transition subscriber
+    rospy.Subscriber("/mur/control/transition", TransitionData, follower.transitionCallback)
 
     # Actuation publisher
     actuation_pub = rospy.Publisher(
